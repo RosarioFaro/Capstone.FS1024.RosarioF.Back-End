@@ -1,30 +1,27 @@
-package com.comicsdb.comics.volume;
+package com.comicsdb.comics.publisher;
 
 import jakarta.persistence.*;
 import lombok.*;
 
 @Entity
-@Table(name = "volumes")
+@Table(name = "publisher")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class Volume {
+public class Publisher {
+    
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-    @Column(unique = true)
+    
+    @Column(nullable = false, unique = true)
     private Long comicVineId;
     
     private String name;
-    private String startYear;
-    private int issueCount;
     
     @Column(columnDefinition = "TEXT")
     private String description;
     
-    private String publisher;
-    private Integer publisherId;
     private String imageUrl;
-    private String apiDetailUrl;
 }

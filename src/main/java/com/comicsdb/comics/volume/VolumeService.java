@@ -33,47 +33,9 @@ public class VolumeService {
         return volumeRepository.findAll(pageable);
     }
     
-    public void fetchVolumes(int page, int size) {
-        int offset = page * size;
-        String url = "https://comicvine.gamespot.com/api/volumes/?" +
-                "api_key=" + apiKey +
-                "&format=json&sort=start_year:desc" +
-                "&limit=" + size +
-                "&offset=" + offset;
-        
-        HttpHeaders headers = new HttpHeaders();
-        headers.set("User-Agent", "TheComicsVault");
-        HttpEntity<String> entity = new HttpEntity<>(headers);
-        
-        ResponseEntity<ComicVineVolumesResponse> response = restTemplate.exchange(
-                url, HttpMethod.GET, entity, ComicVineVolumesResponse.class
-        );
-        if (response.getBody() == null || response.getBody().getResults() == null) {
-            System.out.println("Nessuna risposta valida dalla ComicVine.");
-            return;
-        }
-        
-        List<ComicVineVolume> volumes = response.getBody().getResults();
-        
-        System.out.println("Volumi ricevuti: " + volumes.size());
-        
-        for (ComicVineVolume v : volumes) {
-            if (v.getName() == null || v.getPublisher() == null || v.getPublisher().getName() == null)
-                continue;
-            
-            if (volumeRepository.existsByComicVineId(v.getId()))
-                continue;
-            
-            Volume volume = toVolume(v);
-            volumeRepository.save(volume);
-            System.out.println("Salvato: " + v.getName());
-        }
-    }
-    
     public void fetchVolumesByPublisher(int publisherId, int page, int size) {
         int offset = page * size;
-        // Usiamo un batch più grande per aumentare la probabilità di ottenere abbastanza volumi del publisher
-        int fetchBatchSize = size * 5; // puoi regolare in base alle tue esigenze/limiti API
+        int fetchBatchSize = size * 5;
         
         String url = "https://comicvine.gamespot.com/api/volumes/?" +
                 "api_key=" + apiKey +
@@ -125,7 +87,7 @@ public class VolumeService {
                     existing.setIssueCount(v.getCount_of_issues());
                     changed = true;
                 }
-                String description = safeDescription(v.getDescription());
+                String description = (v.getDescription());
                 if (!Objects.equals(existing.getDescription(), description)) {
                     existing.setDescription(description);
                     changed = true;
@@ -162,7 +124,6 @@ public class VolumeService {
         }
         System.out.println("Volumi importati per il publisher: " + imported);
     }
-    
     
     public List<Volume> searchComicVineVolumes(String query) {
         String url = "https://comicvine.gamespot.com/api/volumes/?" +
@@ -229,13 +190,26 @@ public class VolumeService {
         return dto;
     }
     
+    public Volume getAndSaveComicVineVolumeById(String comicVineId) {
+        Volume volume = getComicVineVolumeById(comicVineId);
+        System.out.println("Volume trovato da ComicVine: " + (volume != null ? volume.getName() : "null"));
+        if (volume == null) return null;
+        if (volumeRepository.existsByComicVineId(volume.getComicVineId())) {
+            System.out.println("Volume già esistente in DB!");
+            return volumeRepository.findByComicVineId(volume.getComicVineId()).orElse(volume);
+        }
+        Volume saved = volumeRepository.save(volume);
+        System.out.println("Volume salvato! ID DB: " + saved.getId() + ", ComicVineId: " + saved.getComicVineId());
+        return saved;
+    }
+    
     private Volume toVolume(ComicVineVolume v) {
         return Volume.builder()
                 .comicVineId(v.getId())
                 .name(v.getName())
                 .startYear(v.getStart_year())
                 .issueCount(v.getCount_of_issues())
-                .description(safeDescription(v.getDescription()))
+                .description(v.getDescription())
                 .publisher(v.getPublisher() != null ? v.getPublisher().getName() : "")
                 .publisherId(v.getPublisher() != null ? v.getPublisher().getId() : null)
                 .imageUrl(v.getImage() != null ? v.getImage().getOriginal_url() : null)
@@ -243,9 +217,4 @@ public class VolumeService {
                 .build();
     }
     
-    private String safeDescription(String desc) {
-        if (desc == null) return "";
-        if (desc.length() > DESCRIPTION_MAX_LENGTH) return desc.substring(0, DESCRIPTION_MAX_LENGTH);
-        return desc;
-    }
 }
