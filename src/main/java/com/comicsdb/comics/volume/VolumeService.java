@@ -7,6 +7,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
+import com.comicsdb.comics.utils.ComicVineHtmlUtils;
 
 import java.util.List;
 import java.util.Map;
@@ -22,107 +23,112 @@ public class VolumeService {
     @Value("${comicvine.api.key}")
     private String apiKey;
     
-    private static final int DESCRIPTION_MAX_LENGTH = 5000;
-    
     public VolumeService(RestTemplate restTemplate, VolumeRepository volumeRepository) {
         this.restTemplate = restTemplate;
         this.volumeRepository = volumeRepository;
     }
     
-    public Page<Volume> getAllVolumes(Pageable pageable) {
-        return volumeRepository.findAll(pageable);
-    }
-    
     public void fetchVolumesByPublisher(int publisherId, int page, int size) {
-        int offset = page * size;
-        int fetchBatchSize = size * 5;
-        
-        String url = "https://comicvine.gamespot.com/api/volumes/?" +
-                "api_key=" + apiKey +
-                "&format=json" +
-                "&sort=start_year:desc" +
-                "&limit=" + fetchBatchSize +
-                "&offset=" + offset;
-        
-        HttpHeaders headers = new HttpHeaders();
-        headers.set("User-Agent", "MyComicListApp");
-        HttpEntity<String> entity = new HttpEntity<>(headers);
-        
-        ResponseEntity<ComicVineVolumesResponse> response = restTemplate.exchange(
-                url, HttpMethod.GET, entity, ComicVineVolumesResponse.class
-        );
-        
-        if (response.getBody() == null || response.getBody().getResults() == null) {
-            System.out.println("Nessuna risposta valida dalla ComicVine.");
-            return;
-        }
-        
-        List<ComicVineVolume> volumes = response.getBody().getResults();
-        System.out.println("Volumi ricevuti (batch): " + volumes.size());
-        
         int imported = 0;
-        for (ComicVineVolume v : volumes) {
-            if (v.getName() == null || v.getPublisher() == null || v.getPublisher().getName() == null)
-                continue;
+        int batch = 0;
+        int fetchBatchSize = size * 5;
+        int maxAttempts = 50;
+        
+        while (imported < size && batch < maxAttempts) {
+            int offset = (page * size) + batch * fetchBatchSize;
             
-            // FILTRO LATO JAVA: solo i volumi con il publisher desiderato
-            if (!Objects.equals(v.getPublisher().getId(), publisherId))
-                continue;
+            String url = "https://comicvine.gamespot.com/api/volumes/?" +
+                    "api_key=" + apiKey +
+                    "&format=json" +
+                    "&sort=start_year:asc" +
+                    "&limit=" + fetchBatchSize +
+                    "&offset=" + offset;
             
-            Optional<Volume> existingOpt = volumeRepository.findByComicVineId(v.getId());
+            HttpHeaders headers = new HttpHeaders();
+            headers.set("User-Agent", "MyComicListApp");
+            HttpEntity<String> entity = new HttpEntity<>(headers);
             
-            if (existingOpt.isPresent()) {
-                Volume existing = existingOpt.get();
-                boolean changed = false;
-                
-                if (!Objects.equals(existing.getName(), v.getName())) {
-                    existing.setName(v.getName());
-                    changed = true;
-                }
-                if (!Objects.equals(existing.getStartYear(), v.getStart_year())) {
-                    existing.setStartYear(v.getStart_year());
-                    changed = true;
-                }
-                if (!Objects.equals(existing.getIssueCount(), v.getCount_of_issues())) {
-                    existing.setIssueCount(v.getCount_of_issues());
-                    changed = true;
-                }
-                String description = (v.getDescription());
-                if (!Objects.equals(existing.getDescription(), description)) {
-                    existing.setDescription(description);
-                    changed = true;
-                }
-                if (!Objects.equals(existing.getPublisher(), v.getPublisher().getName())) {
-                    existing.setPublisher(v.getPublisher().getName());
-                    changed = true;
-                }
-                if (!Objects.equals(existing.getPublisherId(), v.getPublisher().getId())) {
-                    existing.setPublisherId(v.getPublisher().getId());
-                    changed = true;
-                }
-                String imageUrl = (v.getImage() != null ? v.getImage().getOriginal_url() : null);
-                if (!Objects.equals(existing.getImageUrl(), imageUrl)) {
-                    existing.setImageUrl(imageUrl);
-                    changed = true;
-                }
-                if (!Objects.equals(existing.getApiDetailUrl(), v.getApi_detail_url())) {
-                    existing.setApiDetailUrl(v.getApi_detail_url());
-                    changed = true;
-                }
-                if (changed) {
-                    volumeRepository.save(existing);
-                    System.out.println("Aggiornato: " + existing.getName());
-                }
-            } else {
-                Volume volume = toVolume(v);
-                volumeRepository.save(volume);
-                System.out.println("Inserito: " + v.getName());
+            ResponseEntity<ComicVineVolumesResponse> response = restTemplate.exchange(
+                    url, HttpMethod.GET, entity, ComicVineVolumesResponse.class
+            );
+            
+            if (response.getBody() == null || response.getBody().getResults() == null) {
+                System.out.println("Nessuna risposta valida dalla ComicVine.");
+                break;
             }
             
-            imported++;
-            if (imported >= size) break; // Limiti a 'size' i volumi effettivamente processati
+            List<ComicVineVolume> volumes = response.getBody().getResults();
+            System.out.println("Volumi ricevuti (batch " + batch + "): " + volumes.size());
+            
+            for (ComicVineVolume v : volumes) {
+                if (v.getName() == null || v.getPublisher() == null || v.getPublisher().getName() == null)
+                    continue;
+                
+                if (!Objects.equals(v.getPublisher().getId(), publisherId))
+                    continue;
+                
+                Optional<Volume> existingOpt = volumeRepository.findByComicVineId(v.getId());
+                
+                if (existingOpt.isPresent()) {
+                    Volume existing = existingOpt.get();
+                    boolean changed = false;
+                    
+                    if (!Objects.equals(existing.getName(), v.getName())) {
+                        existing.setName(v.getName());
+                        changed = true;
+                    }
+                    if (!Objects.equals(existing.getStartYear(), v.getStart_year())) {
+                        existing.setStartYear(v.getStart_year());
+                        changed = true;
+                    }
+                    if (!Objects.equals(existing.getIssueCount(), v.getCount_of_issues())) {
+                        existing.setIssueCount(v.getCount_of_issues());
+                        changed = true;
+                    }
+                    String description = (v.getDescription());
+                    if (!Objects.equals(existing.getDescription(), description)) {
+                        existing.setDescription(description);
+                        changed = true;
+                    }
+                    if (!Objects.equals(existing.getPublisher(), v.getPublisher().getName())) {
+                        existing.setPublisher(v.getPublisher().getName());
+                        changed = true;
+                    }
+                    if (!Objects.equals(existing.getPublisherId(), v.getPublisher().getId())) {
+                        existing.setPublisherId(v.getPublisher().getId());
+                        changed = true;
+                    }
+                    String imageUrl = (v.getImage() != null ? v.getImage().getOriginal_url() : null);
+                    if (!Objects.equals(existing.getImageUrl(), imageUrl)) {
+                        existing.setImageUrl(imageUrl);
+                        changed = true;
+                    }
+                    if (!Objects.equals(existing.getApiDetailUrl(), v.getApi_detail_url())) {
+                        existing.setApiDetailUrl(v.getApi_detail_url());
+                        changed = true;
+                    }
+                    if (changed) {
+                        volumeRepository.save(existing);
+                        System.out.println("Aggiornato: " + existing.getName());
+                    }
+                } else {
+                    Volume volume = toVolume(v);
+                    volumeRepository.save(volume);
+                    System.out.println("Inserito: " + v.getName());
+                }
+                
+                imported++;
+                if (imported >= size) break;
+            }
+            
+            batch++;
         }
+        
         System.out.println("Volumi importati per il publisher: " + imported);
+    }
+    
+    public Page<Volume> getAllVolumes(Pageable pageable) {
+        return volumeRepository.findAll(pageable);
     }
     
     public List<Volume> searchComicVineVolumes(String query) {
@@ -209,12 +215,11 @@ public class VolumeService {
                 .name(v.getName())
                 .startYear(v.getStart_year())
                 .issueCount(v.getCount_of_issues())
-                .description(v.getDescription())
+                .description(ComicVineHtmlUtils.remapComicVineLinks(v.getDescription()))
                 .publisher(v.getPublisher() != null ? v.getPublisher().getName() : "")
                 .publisherId(v.getPublisher() != null ? v.getPublisher().getId() : null)
                 .imageUrl(v.getImage() != null ? v.getImage().getOriginal_url() : null)
                 .apiDetailUrl(v.getApi_detail_url())
                 .build();
     }
-    
 }

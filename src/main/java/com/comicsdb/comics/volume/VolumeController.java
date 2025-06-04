@@ -7,6 +7,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Collections;
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 @RestController
@@ -20,12 +22,27 @@ public class VolumeController {
     @GetMapping
     public ResponseEntity<Page<Volume>> getVolumi(
             @RequestParam(required = false) String search,
+            @RequestParam(required = false) Long publisher,
             Pageable pageable
     ) {
-        Page<Volume> result = (search != null && !search.isEmpty())
-                ? volumeRepository.findByNameContainingIgnoreCase(search, pageable)
-                : volumeRepository.findAll(pageable);
+        Page<Volume> result;
+        
+        if (search != null && !search.isEmpty() && publisher != null) {
+            result = volumeRepository.findByNameContainingIgnoreCaseAndPublisherId(search, publisher, pageable);
+        } else if (search != null && !search.isEmpty()) {
+            result = volumeRepository.findByNameContainingIgnoreCase(search, pageable);
+        } else if (publisher != null) {
+            result = volumeRepository.findByPublisherId(publisher, pageable);
+        } else {
+            result = volumeRepository.findAll(pageable);
+        }
         return ResponseEntity.ok(result);
+    }
+    
+    @GetMapping("/publishers")
+    public ResponseEntity<List<Map<String, Object>>> getPublishers() {
+        List<Map<String, Object>> publishers = volumeRepository.findDistinctPublishers();
+        return ResponseEntity.ok(publishers);
     }
     
     @PostMapping("/import/publisher/{publisherId}")
