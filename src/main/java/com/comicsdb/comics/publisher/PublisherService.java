@@ -8,6 +8,7 @@ import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
+import com.comicsdb.comics.utils.ComicVineHtmlUtils;
 
 import java.util.Map;
 import java.util.Optional;
@@ -67,7 +68,7 @@ public class PublisherService {
         Publisher publisher = Publisher.builder()
                 .comicVineId(Long.valueOf(comicVineId))
                 .name(publisherDto.getName())
-                .description(publisherDto.getDescription())
+                .description(ComicVineHtmlUtils.remapComicVineLinks(publisherDto.getDescription()))
                 .imageUrl(publisherDto.getImageUrl())
                 .build();
         
