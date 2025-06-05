@@ -22,12 +22,12 @@ public class AuthRunner implements ApplicationRunner {
     public void run(ApplicationArguments args) throws Exception {
         Optional<AppUser> adminUser = appUserService.findByUsername("admin");
         if (adminUser.isEmpty()) {
-            appUserService.registerUser("admin", "string", Set.of(Role.ROLE_ADMIN));
+            appUserService.registerUser("admin", "string", Set.of(Role.ROLE_ADMIN), "/avatars/avatar1.png");
         }
-
+        
         Optional<AppUser> normalUser = appUserService.findByUsername("user");
         if (normalUser.isEmpty()) {
-            appUserService.registerUser("user", "string", Set.of(Role.ROLE_USER));
+            appUserService.registerUser("user", "string", Set.of(Role.ROLE_USER), "/avatars/avatar2.png");
         }
     }
 }

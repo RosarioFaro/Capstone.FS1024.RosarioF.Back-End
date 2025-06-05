@@ -31,6 +31,8 @@ public class AppUser implements UserDetails {
     @ElementCollection(fetch = FetchType.EAGER)
     @Enumerated(EnumType.STRING)
     private Set<Role> roles;
+    
+    private String avatar;
 
     private  boolean accountNonExpired=true;
     private  boolean accountNonLocked=true;
