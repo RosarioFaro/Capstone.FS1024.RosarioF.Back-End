@@ -8,6 +8,7 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -67,4 +68,32 @@ public class AppUserService {
 
         return appUser;
     }
+    
+    public AppUser updateUser(String username, UpdateUserDto dto) {
+        AppUser user = appUserRepository.findByUsername(username)
+                .orElseThrow(() -> new UsernameNotFoundException("User not found"));
+        
+        if (dto.getAvatar() != null && !dto.getAvatar().isBlank()) {
+            user.setAvatar(dto.getAvatar());
+        }
+        
+        if (dto.getUsername() != null && !dto.getUsername().isBlank()
+                && !user.getUsername().equals(dto.getUsername())) {
+            if (appUserRepository.existsByUsername(dto.getUsername())) {
+                throw new IllegalArgumentException("Username already taken");
+            }
+            user.setUsername(dto.getUsername());
+        }
+        
+        if (dto.getCurrentPassword() != null && !dto.getCurrentPassword().isBlank()
+                && dto.getNewPassword() != null && !dto.getNewPassword().isBlank()) {
+            if (!passwordEncoder.matches(dto.getCurrentPassword(), user.getPassword())) {
+                throw new IllegalArgumentException("Current password is incorrect");
+            }
+            user.setPassword(passwordEncoder.encode(dto.getNewPassword()));
+        }
+        
+        return appUserRepository.save(user);
+    }
+    
 }
