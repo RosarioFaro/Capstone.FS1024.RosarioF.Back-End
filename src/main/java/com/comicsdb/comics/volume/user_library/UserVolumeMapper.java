@@ -13,7 +13,8 @@ public class UserVolumeMapper {
                 entity.getVolume().getName(),
                 entity.getStatus(),
                 entity.getUserScore(),
-                entity.getCurrentIssue()
+                entity.getCurrentIssue(),
+                entity.getVolume().getIssueCount()
         );
     }
 }

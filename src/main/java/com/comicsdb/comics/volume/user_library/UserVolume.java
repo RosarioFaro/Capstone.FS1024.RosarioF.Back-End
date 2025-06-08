@@ -31,4 +31,5 @@ public class UserVolume {
     
     private Integer userScore;
     private Integer currentIssue;
+    private Integer issueCount;
 }

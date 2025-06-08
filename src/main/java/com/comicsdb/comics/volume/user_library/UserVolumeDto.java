@@ -15,4 +15,5 @@ public class UserVolumeDto {
     private ReadingStatus status;
     private Integer userScore;
     private Integer currentIssue;
+    private Integer issueCount;
 }

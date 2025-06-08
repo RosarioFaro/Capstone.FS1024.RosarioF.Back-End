@@ -63,7 +63,8 @@ public class VolumeService {
             for (ComicVineVolume v : volumes) {
                 if (v.getName() == null || v.getPublisher() == null || v.getPublisher().getName() == null)
                     continue;
-                
+                if (v.getStart_year() == null)
+                    continue;
                 if (!Objects.equals(v.getPublisher().getId(), publisherId))
                     continue;
                 
