@@ -17,6 +17,7 @@ public interface VolumeRepository extends JpaRepository<Volume, Long> {
     Page<Volume> findByNameContainingIgnoreCase(String name, Pageable pageable);
     Page<Volume> findByPublisherId(Long publisherId, Pageable pageable);
     Page<Volume> findByNameContainingIgnoreCaseAndPublisherId(String name, Long publisherId, Pageable pageable);
+    List<Volume> findByComicVineIdIn(List<Long> comicVineIds);
     
     @Query("SELECT DISTINCT v.publisherId as id, v.publisher as name FROM Volume v WHERE v.publisherId IS NOT NULL")
     List<Map<String, Object>> findDistinctPublishers();

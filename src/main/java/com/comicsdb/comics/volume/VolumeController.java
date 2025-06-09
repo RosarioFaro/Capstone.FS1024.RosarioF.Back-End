@@ -76,6 +76,12 @@ public class VolumeController {
                 .orElse(ResponseEntity.notFound().build());
     }
     
+    @GetMapping("/recommended")
+    public ResponseEntity<List<Volume>> getRecommendedVolumes(@RequestParam List<Long> ids) {
+        List<Volume> volumes = volumeRepository.findByComicVineIdIn(ids);
+        return ResponseEntity.ok(volumes);
+    }
+    
     @GetMapping("/comicvine/{comicVineId}")
     public ResponseEntity<Volume> getOrImportByComicVineId(@PathVariable Long comicVineId) {
         Optional<Volume> local = volumeRepository.findByComicVineId(comicVineId);
